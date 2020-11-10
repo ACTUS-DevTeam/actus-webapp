@@ -28,12 +28,12 @@ public class ScenarioController {
 
     @RequestMapping(method=RequestMethod.GET, value="/scenarios/getScenario/{scenarioId}")
     @CrossOrigin(origins = "*")
-    public List<ObservedData> getScenario(@PathVariable String scenarioId) {
+    public ScenarioData getScenario(@PathVariable String scenarioId) {
         ScenarioData scenario = scenarioRepository.findByScenarioId(scenarioId);
         if(scenario == null) {
             throw new RuntimeException("Scenario with scenarioId='" + scenarioId + "' not found!");
         }
-        return scenario.getData();
+        return scenario;
     }
 
     // body:   An object representing a ScenarioData set

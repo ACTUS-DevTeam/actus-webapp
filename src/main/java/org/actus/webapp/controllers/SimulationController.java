@@ -5,11 +5,11 @@ import org.actus.webapp.models.EventStream2;
 import org.actus.webapp.models.ObservedData;
 import org.actus.webapp.models.ScenarioData;
 import org.actus.webapp.models.ScenarioSimulationInput;
-import org.actus.webapp.models.TwoDimensionalSurfaceData;
+import org.actus.webapp.models.TwoDimensionalPrepaymentModelData;
 import org.actus.webapp.repositories.ScenarioRepository;
-import org.actus.webapp.utils.MultiDimensionalRiskFactorModel;
 import org.actus.webapp.utils.TimeSeriesModel;
 import org.actus.webapp.utils.TwoDimensionalPrepaymentModel;
+import org.actus.webapp.utils.MultiDimensionalRiskFactorModel;
 
 import org.actus.attributes.ContractModel;
 import org.actus.attributes.ContractModelProvider;
@@ -24,6 +24,7 @@ import org.actus.events.EventFactory;
 import org.actus.functions.pam.POF_PP_PAM;
 import org.actus.functions.pam.STF_PP_PAM;
 import org.actus.types.EventType;
+import org.actus.util.CommonUtils;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -72,18 +73,18 @@ public class SimulationController {
         contractData.forEach(entry -> {
             // extract contract terms
             ContractModel terms;
-            String contractId = (entry.get("contractID") == null)? "NA":entry.get("contractID").toString();
+            String contractID = (entry.get("contractID") == null)? "NA":entry.get("contractID").toString();
             try {
                 terms = ContractModel.parse(entry); 
             } catch(Exception e){
-                output.add(new EventStream2(scenarioId, contractId, "Failure", e.toString(), new ArrayList<Event>()));
+                output.add(new EventStream2(scenarioId, contractID, "Failure", e.toString(), new ArrayList<Event>()));
                 return; // skip this iteration and continue with next
             }
             // compute contract events
             try {
-                output.add(new EventStream2(scenarioId, contractId, "Success", "", computeEvents(terms, observer)));
+                output.add(new EventStream2(scenarioId, contractID, "Success", "", computeEvents(terms, observer)));
             }catch(Exception e){
-                output.add(new EventStream2(scenarioId, contractId, "Failure", e.toString(), new ArrayList<Event>()));
+                output.add(new EventStream2(scenarioId, contractID, "Failure", e.toString(), new ArrayList<Event>()));
             }
         });
         return output;
@@ -92,17 +93,24 @@ public class SimulationController {
     private RiskFactorModelProvider createObserver(ScenarioData json) {
         MultiDimensionalRiskFactorModel observer = new MultiDimensionalRiskFactorModel();
         List<ObservedData> timeSeriesData = json.getTimeSeriesData();
-        List<TwoDimensionalSurfaceData> surfaceData = json.getTwoDimensionalSurfaceData();
+        List<TwoDimensionalPrepaymentModelData> prepModelData = json.getTwoDimensionalPrepaymentModelData();
 
         if(timeSeriesData.size()>0) {
             timeSeriesData.forEach(entry -> {
                 observer.add(entry.getMarketObjectCode(),new TimeSeriesModel(entry));
             });
         }
+        
+        if(!prepModelData.isEmpty()) {
+            prepModelData.forEach(entry -> {
+                try {
+                    
+                    observer.add(entry.getRiskFactorId(),
+                        new TwoDimensionalPrepaymentModel(entry.getRiskFactorId(),entry,observer));
 
-        if(surfaceData.size()>0) {
-            surfaceData.forEach(entry -> {
-                observer.add(entry.getRiskFactorId(),new TwoDimensionalPrepaymentModel(entry,observer));
+                } catch(Exception e) {
+                    throw new RuntimeException("riskFactorType for MultiDimensionalModelData with riskFactorId='" + entry.getRiskFactorId() + "' unsupported!");
+                }
             });
         }
 
@@ -120,22 +128,24 @@ public class SimulationController {
         // compute actus schedule
         ArrayList<ContractEvent> schedule = ContractType.schedule(to, model);
 
-        // add prepayment events
-        /*schedule.addAll(EventFactory.createEvents(
-                    ScheduleFactory.createSchedule(
-                            model.<LocalDateTime>getAs("InitialExchangeDate").plusMonths(3),
-                            to,
-                            "P3ML1",
-                            model.getAs("EndOfMonthConvention"),
-                            false
-                    ),
-                    EventType.PP,
-                    model.getAs("Currency"),
-                    new POF_PP_PAM(),
-                    new STF_PP_PAM(),
-                    model.getAs("BusinessDayConvention"),
-                    model.getAs("ContractID")
-            ));*/
+        // add prepayment events if prepayment model referenced by contract
+        if(!CommonUtils.isNull(model.getAs("ObjectCodeOfPrepaymentModel"))) {
+            schedule.addAll(EventFactory.createEvents(
+                        ScheduleFactory.createSchedule(
+                                model.<LocalDateTime>getAs("InitialExchangeDate").plusMonths(12),
+                                to,
+                                "P1YL1",
+                                model.getAs("EndOfMonthConvention"),
+                                false
+                        ),
+                        EventType.PP,
+                        model.getAs("Currency"),
+                        new POF_PP_PAM(),
+                        new STF_PP_PAM(),
+                        model.getAs("BusinessDayConvention"),
+                        model.getAs("ContractID")
+                ));
+        }
 
         // apply schedule to contract
         schedule = ContractType.apply(schedule, model, observer);

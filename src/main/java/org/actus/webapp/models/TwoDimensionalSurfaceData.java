@@ -3,7 +3,6 @@ package org.actus.webapp.models;
 import java.util.List;
 
 public class TwoDimensionalSurfaceData {
-    private String riskFactorId;
     private String interpolationMethod; // e.g. "linear"
     private String extrapolationMethod; // e.g. "constant"
     private List<Margin> margins;
@@ -12,20 +11,11 @@ public class TwoDimensionalSurfaceData {
     public TwoDimensionalSurfaceData() {
     }
 
-    public TwoDimensionalSurfaceData(String riskFactorId, String interpolationMethod, String extrapolationMethod, List<Margin> margins, List<List<Double>> data) {
-        this.riskFactorId = riskFactorId;
+    public TwoDimensionalSurfaceData(String interpolationMethod, String extrapolationMethod, List<Margin> margins, List<List<Double>> data) {
         this.interpolationMethod = interpolationMethod;
         this.extrapolationMethod = extrapolationMethod;
         this.margins = margins;
         this.data = data;
-    }
-
-    public String getRiskFactorId() {
-        return this.riskFactorId;
-    }
-
-    public void setRiskFactorId(String riskFactorId) {
-        this.riskFactorId = riskFactorId;
     }
 
     public String getInterpolationMethod() {
@@ -62,8 +52,7 @@ public class TwoDimensionalSurfaceData {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("TwoDimensionalSurfaveData{");
-        sb.append("riskFactorId='").append(riskFactorId).append('\'');
+        final StringBuilder sb = new StringBuilder("TwoDimensionalSurfaceData{");
         sb.append(", interpolationMethod='").append(interpolationMethod).append('\'');
         sb.append(", extrapolationMethod='").append(extrapolationMethod).append('\'');
         sb.append(", margins='").append(margins).append('\'');

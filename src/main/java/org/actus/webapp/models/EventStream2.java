@@ -5,7 +5,7 @@ import java.util.*;
 public class EventStream2 {
 
     private String scenarioId;
-    private String contractId;
+    private String contractID;
     private String status;
     private String message;
     private List<Event> events;
@@ -13,9 +13,9 @@ public class EventStream2 {
     public EventStream2() {
     }
 
-    public EventStream2(String scenarioId, String contractId, String status, String message, List<Event> events) {
+    public EventStream2(String scenarioId, String contractID, String status, String message, List<Event> events) {
         this.scenarioId = scenarioId;
-        this.contractId = contractId;
+        this.contractID = contractID;
         this.status = status;
         this.message = message;
         this.events = events;
@@ -29,12 +29,12 @@ public class EventStream2 {
         this.scenarioId = scenarioId;
     }
 
-    public String getContractId() {
-        return contractId;
+    public String getContractID() {
+        return contractID;
     }
 
-    public void setContractId(String contractId) {
-        this.contractId = contractId;
+    public void setContractID(String contractID) {
+        this.contractID = contractID;
     }
 
     public String getStatus() {
@@ -65,7 +65,7 @@ public class EventStream2 {
     public String toString() {
         final StringBuilder sb = new StringBuilder("EventStream2{");
         sb.append("scenarioId='").append(scenarioId).append('\'');
-        sb.append("contractId='").append(contractId).append('\'');
+        sb.append("contractID='").append(contractID).append('\'');
         sb.append(", status='").append(status).append('\'');
         sb.append(", message='").append(message).append('\'');
         sb.append(", events='").append(events).append('\'');

@@ -7,16 +7,16 @@ public class ScenarioData {
     private String scenarioId;
     private List<ObservedData> timeSeriesData;
     private List<TermStructureData> termStructureData;
-    private List<TwoDimensionalSurfaceData> twoDimensionalSurfaceData;
+    private List<TwoDimensionalPrepaymentModelData> twoDimensionalPrepaymentModelData;
 
     public ScenarioData() {
     }
 
-    public ScenarioData(String scenarioId, List<ObservedData> timeSeriesData, List<TermStructureData> termStructureData, List<TwoDimensionalSurfaceData> twoDimensionalSurfaceData) {
+    public ScenarioData(String scenarioId, List<ObservedData> timeSeriesData, List<TermStructureData> termStructureData, List<TwoDimensionalPrepaymentModelData> twoDimensionalPrepaymentModelData) {
         this.scenarioId = scenarioId;
         this.timeSeriesData = timeSeriesData;
         this.termStructureData = termStructureData;
-        this.twoDimensionalSurfaceData = twoDimensionalSurfaceData;
+        this.twoDimensionalPrepaymentModelData = twoDimensionalPrepaymentModelData;
     }
 
     public String getScenarioId() {
@@ -43,12 +43,12 @@ public class ScenarioData {
         this.termStructureData = termStructureData;
     }
 
-    public List<TwoDimensionalSurfaceData> getTwoDimensionalSurfaceData() {
-        return twoDimensionalSurfaceData;
+    public List<TwoDimensionalPrepaymentModelData> getTwoDimensionalPrepaymentModelData() {
+        return twoDimensionalPrepaymentModelData;
     }
 
-    public void setTwoDimensionalSurfaceData(List<TwoDimensionalSurfaceData> twoDimensionalSurfaceData) {
-        this.twoDimensionalSurfaceData = twoDimensionalSurfaceData;
+    public void setTwoDimensionalPrepaymentModelData(List<TwoDimensionalPrepaymentModelData> twoDimensionalPrepaymentModelData) {
+        this.twoDimensionalPrepaymentModelData = twoDimensionalPrepaymentModelData;
     }
 
     @Override
@@ -57,7 +57,7 @@ public class ScenarioData {
         sb.append("scenarioId='").append(scenarioId).append('\'');
         sb.append(", timeSeriesData='").append(timeSeriesData).append('\'');
         sb.append(", termStructureData='").append(termStructureData).append('\'');
-        sb.append(", twoDimensionalSurfaceData='").append(twoDimensionalSurfaceData).append('\'');
+        sb.append(", twoDimensionalPrepaymentModelData='").append(twoDimensionalPrepaymentModelData).append('\'');
         sb.append('}');
         return sb.toString();
     }

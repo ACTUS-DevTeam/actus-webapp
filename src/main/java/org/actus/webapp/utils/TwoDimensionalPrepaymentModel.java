@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 
 import org.actus.states.StateSpace;
 import org.actus.webapp.models.ObservedData;
+import org.actus.webapp.models.TwoDimensionalPrepaymentModelData;
 import org.actus.webapp.models.TwoDimensionalSurfaceData;
 import org.actus.attributes.ContractModelProvider;
 import org.actus.conventions.daycount.DayCountCalculator;
@@ -21,15 +22,15 @@ public class TwoDimensionalPrepaymentModel implements RiskFactorModelProvider {
 	public TwoDimensionalPrepaymentModel() {
 	}
 
-	public TwoDimensionalPrepaymentModel(TwoDimensionalSurfaceData data, RiskFactorModelProvider marketModel) {
+	public TwoDimensionalPrepaymentModel(String riskFactorId, TwoDimensionalPrepaymentModelData data, RiskFactorModelProvider marketModel) {
 		this.marketModel = marketModel;
-		this.riskFactorId = data.getRiskFactorId();
-		this.referenceRate = "SOFR";
+		this.riskFactorId = riskFactorId;
+		this.referenceRate = data.getReferenceRateId();
 		this.dayCount = new DayCountCalculator("A360", null);
 		this.surface = new TimeSeries<Double,TimeSeries<Double,Double>>();
-		List<Double> dimension1Margins = data.getMargins().get(0).getValues();
-		Double[] dimension2Margins = data.getMargins().get(1).getValues().stream().map(obs -> obs).toArray(Double[]::new);
-		List<List<Double>> values = data.getData();
+		List<Double> dimension1Margins = data.getSurface().getMargins().get(0).getValues();
+		Double[] dimension2Margins = data.getSurface().getMargins().get(1).getValues().stream().map(obs -> obs).toArray(Double[]::new);
+		List<List<Double>> values = data.getSurface().getData();
 		for(int i=0; i<values.size(); i++) {
 			TimeSeries<Double,Double> dimensionSeries = new TimeSeries<Double,Double>();
 			Double[] dimensionValues = values.get(i).stream().map(obs -> obs).toArray(Double[]::new);
@@ -46,6 +47,7 @@ public class TwoDimensionalPrepaymentModel implements RiskFactorModelProvider {
 			ContractModelProvider terms) {
 		double spread = states.nominalInterestRate - marketModel.stateAt(this.referenceRate,time,states,terms);
 		double age = dayCount.dayCountFraction(terms.<LocalDateTime>getAs("InitialExchangeDate"),states.statusDate);
+		
 		return surface.getValueFor(spread,1).getValueFor(age,1);
 	}
 }

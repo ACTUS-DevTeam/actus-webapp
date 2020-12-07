@@ -24,6 +24,7 @@ import org.actus.events.EventFactory;
 import org.actus.functions.pam.POF_PP_PAM;
 import org.actus.functions.pam.STF_PP_PAM;
 import org.actus.types.EventType;
+import org.actus.types.ContractTypeEnum;
 import org.actus.util.CommonUtils;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -137,6 +138,26 @@ public class SimulationController {
                                 "P1YL1",
                                 model.getAs("EndOfMonthConvention"),
                                 false
+                        ),
+                        EventType.PP,
+                        model.getAs("Currency"),
+                        new POF_PP_PAM(),
+                        new STF_PP_PAM(),
+                        model.getAs("BusinessDayConvention"),
+                        model.getAs("ContractID")
+                ));
+        }
+
+        // add deposit withdrawal events if withdrawal model referenced by UMP contract
+        if(model.getAs("ContractType").equals(ContractTypeEnum.UMP) && !CommonUtils.isNull(model.getAs("MarketObjectCode"))) {
+            model.addAttribute("ObjectCodeOfPrepaymentModel",model.getAs("MarketObjectCode"));
+            schedule.addAll(EventFactory.createEvents(
+                        ScheduleFactory.createSchedule(
+                                model.<LocalDateTime>getAs("InitialExchangeDate").plusYears(1),
+                                model.<LocalDateTime>getAs("InitialExchangeDate").plusYears(3),
+                                "P1YL1",
+                                model.getAs("EndOfMonthConvention"),
+                                true
                         ),
                         EventType.PP,
                         model.getAs("Currency"),

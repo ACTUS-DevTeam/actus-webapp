@@ -23,6 +23,8 @@ import org.actus.time.ScheduleFactory;
 import org.actus.events.EventFactory;
 import org.actus.functions.pam.POF_PP_PAM;
 import org.actus.functions.pam.STF_PP_PAM;
+import org.actus.functions.pam.POF_AD_PAM;
+import org.actus.functions.pam.STF_AD_PAM;
 import org.actus.types.EventType;
 import org.actus.types.ContractTypeEnum;
 import org.actus.util.CommonUtils;
@@ -56,6 +58,8 @@ public class SimulationController {
         // extract body parameters
         String scenarioId = json.getScenarioId();
         List<Map<String, Object>> contractData = json.getContracts();
+        LocalDateTime simulateTo = json.getSimulateTo();
+        Set<LocalDateTime> monitoringTimes = json.getMonitoringTimes();
 
         // fetch scenario data and create risk factor observer
         ScenarioData scenario = scenarioRepository.findByScenarioId(scenarioId);
@@ -83,7 +87,7 @@ public class SimulationController {
             }
             // compute contract events
             try {
-                output.add(new EventStream2(scenarioId, contractID, "Success", "", computeEvents(terms, observer)));
+                output.add(new EventStream2(scenarioId, contractID, "Success", "", computeEvents(terms, observer, simulateTo, monitoringTimes)));
             }catch(Exception e){
                 output.add(new EventStream2(scenarioId, contractID, "Failure", e.toString(), new ArrayList<Event>()));
             }
@@ -118,16 +122,27 @@ public class SimulationController {
         return observer;
     }
 
-    private List<Event> computeEvents(ContractModel model, RiskFactorModelProvider observer) {
-        // define projection end-time
-        LocalDateTime to = model.getAs("TerminationDate");
+    private List<Event> computeEvents(ContractModel model, RiskFactorModelProvider observer, LocalDateTime to, Set<LocalDateTime> monitoringTimes) {
+
+        // define simulation horizon if not provided
         if(to == null) to = model.getAs("MaturityDate");
-        if(to == null) to = model.getAs("AmortizationDate");
-        if(to == null) to = model.getAs("SettlementDate");
         if(to == null) to = LocalDateTime.now().plusYears(5);
 
         // compute actus schedule
         ArrayList<ContractEvent> schedule = ContractType.schedule(to, model);
+
+        // add monitoring events if defined
+        if(monitoringTimes != null && monitoringTimes.size()>0) {
+            schedule.addAll(EventFactory.createEvents(
+                        monitoringTimes,
+                        EventType.AD,
+                        model.getAs("Currency"),
+                        new POF_AD_PAM(),
+                        new STF_AD_PAM(),
+                        model.getAs("BusinessDayConvention"),
+                        model.getAs("ContractID")
+                ));
+        }
 
         // add prepayment events if prepayment model referenced by contract
         if(!CommonUtils.isNull(model.getAs("ObjectCodeOfPrepaymentModel"))) {

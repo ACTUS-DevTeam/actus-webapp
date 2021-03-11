@@ -47,7 +47,6 @@ public class TwoDimensionalPrepaymentModel implements RiskFactorModelProvider {
 			ContractModelProvider terms) {
 		double spread = states.nominalInterestRate - marketModel.stateAt(this.referenceRate,time,states,terms);
 		double age = dayCount.dayCountFraction(terms.<LocalDateTime>getAs("InitialExchangeDate"),states.statusDate);
-		
 		return surface.getValueFor(spread,1).getValueFor(age,1);
 	}
 }

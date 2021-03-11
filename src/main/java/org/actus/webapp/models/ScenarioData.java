@@ -8,15 +8,19 @@ public class ScenarioData {
     private List<ObservedData> timeSeriesData;
     private List<TermStructureData> termStructureData;
     private List<TwoDimensionalPrepaymentModelData> twoDimensionalPrepaymentModelData;
+    private List<TwoDimensionalCreditLossModelData> twoDimensionalCreditLossModelData;
 
     public ScenarioData() {
     }
 
-    public ScenarioData(String scenarioId, List<ObservedData> timeSeriesData, List<TermStructureData> termStructureData, List<TwoDimensionalPrepaymentModelData> twoDimensionalPrepaymentModelData) {
+    public ScenarioData(String scenarioId, List<ObservedData> timeSeriesData, List<TermStructureData> termStructureData, 
+                        List<TwoDimensionalPrepaymentModelData> twoDimensionalPrepaymentModelData,
+                        List<TwoDimensionalCreditLossModelData> twoDimensionalCreditLossModelData) {
         this.scenarioId = scenarioId;
         this.timeSeriesData = timeSeriesData;
         this.termStructureData = termStructureData;
         this.twoDimensionalPrepaymentModelData = twoDimensionalPrepaymentModelData;
+        this.twoDimensionalCreditLossModelData = twoDimensionalCreditLossModelData;
     }
 
     public String getScenarioId() {
@@ -51,6 +55,14 @@ public class ScenarioData {
         this.twoDimensionalPrepaymentModelData = twoDimensionalPrepaymentModelData;
     }
 
+    public List<TwoDimensionalCreditLossModelData> getTwoDimensionalCreditLossModelData() {
+        return twoDimensionalCreditLossModelData;
+    }
+
+    public void setTwoDimensionalCreditLossModelData(List<TwoDimensionalCreditLossModelData> twoDimensionalCreditLossModelData) {
+        this.twoDimensionalCreditLossModelData = twoDimensionalCreditLossModelData;
+    }
+
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("ScenarioData{");
@@ -58,6 +70,7 @@ public class ScenarioData {
         sb.append(", timeSeriesData='").append(timeSeriesData).append('\'');
         sb.append(", termStructureData='").append(termStructureData).append('\'');
         sb.append(", twoDimensionalPrepaymentModelData='").append(twoDimensionalPrepaymentModelData).append('\'');
+        sb.append(", twoDimensionalCreditLossModelData='").append(twoDimensionalCreditLossModelData).append('\'');
         sb.append('}');
         return sb.toString();
     }

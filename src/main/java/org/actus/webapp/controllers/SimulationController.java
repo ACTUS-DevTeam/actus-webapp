@@ -6,10 +6,18 @@ import org.actus.webapp.models.ObservedData;
 import org.actus.webapp.models.ScenarioData;
 import org.actus.webapp.models.ScenarioSimulationInput;
 import org.actus.webapp.models.TwoDimensionalPrepaymentModelData;
+import org.actus.webapp.models.TwoDimensionalCreditLossModelData;
 import org.actus.webapp.repositories.ScenarioRepository;
 import org.actus.webapp.utils.TimeSeriesModel;
 import org.actus.webapp.utils.TwoDimensionalPrepaymentModel;
+import org.actus.webapp.utils.TwoDimensionalCreditLossModel;
 import org.actus.webapp.utils.MultiDimensionalRiskFactorModel;
+import org.actus.webapp.core.functions.POF_PP;
+import org.actus.webapp.core.functions.STF_PP;
+import org.actus.webapp.core.functions.POF_CL;
+import org.actus.webapp.core.functions.STF_CL;
+import org.actus.webapp.core.functions.POF_CW;
+import org.actus.webapp.core.functions.STF_CW;
 
 import org.actus.attributes.ContractModel;
 import org.actus.attributes.ContractModelProvider;
@@ -21,8 +29,6 @@ import org.actus.events.EventFactory;
 import org.actus.events.ContractEvent;
 import org.actus.time.ScheduleFactory;
 import org.actus.events.EventFactory;
-import org.actus.functions.pam.POF_PP_PAM;
-import org.actus.functions.pam.STF_PP_PAM;
 import org.actus.functions.pam.POF_AD_PAM;
 import org.actus.functions.pam.STF_AD_PAM;
 import org.actus.types.EventType;
@@ -40,6 +46,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.time.Period;
 
 @RestController
@@ -80,14 +87,17 @@ public class SimulationController {
             ContractModel terms;
             String contractID = (entry.get("contractID") == null)? "NA":entry.get("contractID").toString();
             try {
-                terms = ContractModel.parse(entry); 
+                terms = ContractModel.parse(entry);
+                if(entry.get("auxiliaryTerms")!=null) {
+                    ((List<HashMap<String,String>>) entry.get("auxiliaryTerms")).forEach(term -> terms.addAttribute(term.get("id"),term.get("value")));
+                }
             } catch(Exception e){
                 output.add(new EventStream2(scenarioId, contractID, "Failure", e.toString(), new ArrayList<Event>()));
                 return; // skip this iteration and continue with next
             }
             // compute contract events
             try {
-                output.add(new EventStream2(scenarioId, contractID, "Success", "", computeEvents(terms, observer, simulateTo, monitoringTimes)));
+                output.add(new EventStream2(scenarioId, contractID, "Success", "", computeEvents(terms, observer, simulateTo, monitoringTimes, scenario)));
             }catch(Exception e){
                 output.add(new EventStream2(scenarioId, contractID, "Failure", e.toString(), new ArrayList<Event>()));
             }
@@ -99,6 +109,7 @@ public class SimulationController {
         MultiDimensionalRiskFactorModel observer = new MultiDimensionalRiskFactorModel();
         List<ObservedData> timeSeriesData = json.getTimeSeriesData();
         List<TwoDimensionalPrepaymentModelData> prepModelData = json.getTwoDimensionalPrepaymentModelData();
+        List<TwoDimensionalCreditLossModelData> creditLossModelData = json.getTwoDimensionalCreditLossModelData();
 
         if(timeSeriesData.size()>0) {
             timeSeriesData.forEach(entry -> {
@@ -114,7 +125,20 @@ public class SimulationController {
                         new TwoDimensionalPrepaymentModel(entry.getRiskFactorId(),entry,observer));
 
                 } catch(Exception e) {
-                    throw new RuntimeException("riskFactorType for MultiDimensionalModelData with riskFactorId='" + entry.getRiskFactorId() + "' unsupported!");
+                    throw new RuntimeException("riskFactorType for TwoDimensionalPrepaymentModelData with riskFactorId='" + entry.getRiskFactorId() + "' unsupported!");
+                }
+            });
+        }
+
+        if(!creditLossModelData.isEmpty()) {
+            creditLossModelData.forEach(entry -> {
+                try {
+                    
+                    observer.add(entry.getRiskFactorId(),
+                        new TwoDimensionalCreditLossModel(entry.getRiskFactorId(),entry,observer));
+
+                } catch(Exception e) {
+                    throw new RuntimeException("riskFactorType for TwoDimensionalCreditLossModelData with riskFactorId='" + entry.getRiskFactorId() + "' unsupported!");
                 }
             });
         }
@@ -122,7 +146,8 @@ public class SimulationController {
         return observer;
     }
 
-    private List<Event> computeEvents(ContractModel model, RiskFactorModelProvider observer, LocalDateTime to, Set<LocalDateTime> monitoringTimes) {
+    private List<Event> computeEvents(ContractModel model, RiskFactorModelProvider observer, LocalDateTime to, 
+                                    Set<LocalDateTime> monitoringTimes, ScenarioData scenario) {
 
         // define simulation horizon if not provided
         if(to == null) to = model.getAs("MaturityDate");
@@ -145,47 +170,68 @@ public class SimulationController {
         }
 
         // add prepayment events if prepayment model referenced by contract
-        if(!CommonUtils.isNull(model.getAs("ObjectCodeOfPrepaymentModel"))) {
-            schedule.addAll(EventFactory.createEvents(
-                        ScheduleFactory.createSchedule(
-                                model.<LocalDateTime>getAs("InitialExchangeDate").plusMonths(12),
-                                to,
-                                "P1YL1",
-                                model.getAs("EndOfMonthConvention"),
-                                false
-                        ),
-                        EventType.PP,
-                        model.getAs("Currency"),
-                        new POF_PP_PAM(),
-                        new STF_PP_PAM(),
-                        model.getAs("BusinessDayConvention"),
-                        model.getAs("ContractID")
-                ));
+        if(!CommonUtils.isNull(model.getAs("objectCodeOfPrepaymentModel"))) {
+            String modelId = model.getAs("objectCodeOfPrepaymentModel");
+            TwoDimensionalPrepaymentModelData modelData = scenario.getTwoDimensionalPrepaymentModelData().
+                    stream().filter(dat -> dat.getRiskFactorId().equals(modelId)).collect(Collectors.toList()).get(0);
+            List<String> prepaymentEventTimes = modelData.getPrepaymentEventTimes();
+            IntStream stream = IntStream.range(0,prepaymentEventTimes.size()); // start inclusive, end exclusive
+            ArrayList<ContractEvent> prepaymentEvents = new ArrayList<ContractEvent>();
+            stream.forEach(i -> prepaymentEvents.add(EventFactory.createEvent(
+                LocalDateTime.parse(prepaymentEventTimes.get(i)),
+                EventType.PP,
+                model.getAs("Currency"),
+                new POF_PP(),
+                new STF_PP(),
+                model.getAs("BusinessDayConvention"),
+                model.getAs("ContractID")
+            )));
+            schedule.addAll(prepaymentEvents);
         }
 
         // add deposit withdrawal events if withdrawal model referenced by UMP contract
-        if(model.getAs("ContractType").equals(ContractTypeEnum.UMP) && !CommonUtils.isNull(model.getAs("MarketObjectCode"))) {
-            model.addAttribute("ObjectCodeOfPrepaymentModel",model.getAs("MarketObjectCode"));
-            schedule.addAll(EventFactory.createEvents(
-                        ScheduleFactory.createSchedule(
-                                model.<LocalDateTime>getAs("InitialExchangeDate").plusYears(1),
-                                model.<LocalDateTime>getAs("InitialExchangeDate").plusYears(3),
-                                "P1YL1",
-                                model.getAs("EndOfMonthConvention"),
-                                true
-                        ),
-                        EventType.PP,
-                        model.getAs("Currency"),
-                        new POF_PP_PAM(),
-                        new STF_PP_PAM(),
-                        model.getAs("BusinessDayConvention"),
-                        model.getAs("ContractID")
-                ));
+        if(model.getAs("ContractType").equals(ContractTypeEnum.UMP) && !CommonUtils.isNull(model.getAs("objectCodeOfCashBalanceModel"))) {
+            String modelId = model.getAs("objectCodeOfCashBalanceModel");
+            TwoDimensionalPrepaymentModelData modelData = scenario.getTwoDimensionalPrepaymentModelData().
+                    stream().filter(dat -> dat.getRiskFactorId().equals(modelId)).collect(Collectors.toList()).get(0);
+            List<String> transactionEventTimes = modelData.getPrepaymentEventTimes();
+            IntStream stream = IntStream.range(0,transactionEventTimes.size()); // start inclusive, end exclusive
+            ArrayList<ContractEvent> transactionEvents = new ArrayList<ContractEvent>();
+            stream.forEach(i -> transactionEvents.add(EventFactory.createEvent(
+                LocalDateTime.parse(transactionEventTimes.get(i)),
+                EventType.PR,
+                model.getAs("Currency"),
+                new POF_CW(),
+                new STF_CW(),
+                model.getAs("BusinessDayConvention"),
+                model.getAs("ContractID")
+            )));
+            schedule.addAll(transactionEvents);
+        }
+
+        // add credit loss events if credit loss model referenced by contract
+        if(!CommonUtils.isNull(model.getAs("objectCodeOfCreditLossModel"))) {
+            String modelId = model.getAs("objectCodeOfCreditLossModel");
+            TwoDimensionalCreditLossModelData modelData = scenario.getTwoDimensionalCreditLossModelData().
+                    stream().filter(dat -> dat.getRiskFactorId().equals(modelId)).collect(Collectors.toList()).get(0);
+            List<String> creditEventTimes = modelData.getCreditEventTimes();
+            List<Double> creditEventWeights = modelData.getCreditEventWeights();
+            IntStream stream = IntStream.range(0,creditEventTimes.size()); // start inclusive, end exclusive
+            ArrayList<ContractEvent> creditEvents = new ArrayList<ContractEvent>();
+            stream.forEach(i -> creditEvents.add(EventFactory.createEvent(
+                LocalDateTime.parse(creditEventTimes.get(i)),
+                EventType.CE,
+                model.getAs("Currency"),
+                new POF_CL(),
+                new STF_CL(creditEventWeights.get(i)),
+                model.getAs("BusinessDayConvention"),
+                model.getAs("ContractID")
+            )));
+            schedule.addAll(creditEvents);
         }
 
         // apply schedule to contract
-        schedule = ContractType.apply(schedule, model, observer);
-        
+        schedule = ContractType.apply(schedule, model, observer);      
         // transform schedule to event list and return
         return schedule.stream().map(e -> new Event(e)).collect(Collectors.toList());
     }

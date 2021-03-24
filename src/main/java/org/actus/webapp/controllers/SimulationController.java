@@ -222,7 +222,7 @@ public class SimulationController {
                 LocalDateTime.parse(creditEventTimes.get(i)),
                 EventType.CE,
                 model.getAs("Currency"),
-                new POF_CL(),
+                new POF_CL(creditEventWeights.get(i)),
                 new STF_CL(creditEventWeights.get(i)),
                 model.getAs("BusinessDayConvention"),
                 model.getAs("ContractID")
